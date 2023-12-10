@@ -9,13 +9,13 @@ using namespace std;
 //64 cols, 32 rows grid[64][32], displays 8 x 15 sprites
 //on will be green, off will be black
 struct Display {
-	uint8_t cols = 64;
-	uint8_t rows = 32;
-	uint8_t pixelsScale = 12;
+	const uint8_t cols = 64;
+	const uint8_t rows = 32;
+	const uint8_t pixelsScale = 12;
 	//multi dimensional arrays of rectangles that will be drawn as scaled pixels
 	sf::RenderWindow window;
-	sf::RectangleShape pixels[64][32];
-	uint8_t collisionPixels[64][32] = {};
+	sf::RectangleShape pixels[64 * 32];
+	uint8_t screenGrid[64][32] = {};
 };
 
 class Chip8 {
@@ -47,14 +47,14 @@ public:
 
 	Chip8() 
 	{
-		//initScreen();
+		initScreen();
 		//ClearIn();
 		//returnSub();
 		//gotoNNN();
 		//callNNN();
 		//sixXNN();
 		//sevXNN();
-		DXYN();
+		//DXYN();
 	}
 
 	void callNNN() {
@@ -114,27 +114,41 @@ public:
 	{
 		screen.window.create(sf::VideoMode(screen.cols * screen.pixelsScale, screen.rows * screen.pixelsScale), "Chip-8 Emulator", sf::Style::Titlebar | sf::Style::Close);
 		screen.window.setFramerateLimit(30);
-
-		//set the rectangle prooperties;
-		for (int x = 0; x < screen.cols; ++x) {
-			for (int y = 0; y < screen.rows; ++y) {
-				screen.pixels[x][y].setSize(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
-				screen.pixels[x][y].setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
-				screen.pixels[x][y].setFillColor(sf::Color::Green);
-			}
-		}
-
 		screen.window.display();
 	}
 
 	void renderPixels() 
 	{
-		// Render each rectangle pixel
-		for (int x = 0; x < screen.cols; x = x + 2) {
-			for (int y = 0; y < screen.rows; ++y) {
-				screen.window.draw(screen.pixels[x][y]);
+		screen.window.clear(sf::Color::Black);
+
+		for (int x = 0; x < screen.cols; ++x)
+		{
+			for (int y = 0; y < screen.rows; ++y)
+			{
+				if (screen.screenGrid[x][y] == 1)
+				{
+					// Draw a rectangle for an active pixel
+					sf::RectangleShape pixel(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
+					pixel.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
+					pixel.setFillColor(sf::Color::Green);  // Set the color to represent an active pixel
+					screen.window.draw(pixel);
+				}
 			}
 		}
+		screen.window.display();
+	}
+
+	void clearScreen()
+	{
+		// Clear the screenGrid by setting all values to 0
+		for (int x = 0; x < screen.cols; ++x)
+		{
+			for (int y = 0; y < screen.rows; ++y)
+			{
+				screen.screenGrid[x][y] = 0;
+			}
+		}
+		screen.window.clear(sf::Color::Black);
 		screen.window.display();
 	}
 
@@ -142,34 +156,30 @@ public:
 	{
 		// x and y are the values stored in V[x], V[y], 0 - 255, n a nibble 0 - 15
 		//if there was at least one collision, set VF to 1
-		uint8_t xCoord = x % 64;
-		uint8_t yCoord = y % 32;
+		uint8_t xCoord = x % screen.cols;
+		uint8_t yCoord = y % screen.rows;
 
-		//save state of screen
-		//compare after xoring with the sprite?
-
-		sf::RectangleShape;
-		
 		//set VF to 0
 		V[0xF] = 1;
 
 		//for n rows, 
-		for (int i = 0; i < n; i++)
+		for (int row = 0; row < n; row++)
 		{
 			uint8_t mByte = memory[registerI++];
 			
-			for (int j = 0; j < 8; j++)
+			for (int col = 0; col < 8; col++)
 			{
-
+				//in here we need to grab the bits from Mbyte which represent each pixel and whether they are on or off
+				uint8_t bytePixel = ((mByte & 0x80 >> col) != 0) ? 1 : 0;
+				uint8_t collision = (screen.screenGrid[col + xCoord][row + yCoord] ^ bytePixel == 1) ? 1 : 0;
+				if (collision)
+				{
+					V[15] = collision;
+				}
+				screen.screenGrid[col + xCoord][row + yCoord] = bytePixel;
 			}
-
-			//I need to modify screen.pixels 2d array
-
-			screen.pixels[x][y].setPosition(x * screen.pixelsScale, y * screen.pixelsScale); // use to set coordinate?
 		}
-
-		V[15] = 1;
-
+		renderPixels();
 	}
 
 	void fetch() 
@@ -200,11 +210,13 @@ public:
 					case 0x00E0: 
 					{
 						cout << "Clear the screen" << endl;
+						clearScreen();
 						break;
 					}
 					case 0x00EE: 
 					{
 						cout << "Return from subroutine" << endl;
+						return;
 						break;
 					}
 					default:
@@ -270,8 +282,7 @@ public:
 
 				//XOR sprite against current framebuffer, if any pixels are erased, then set VF to 1, otherwise VF to 0
 				//XOR against current pixels, that toggles, 
-				//1010 ^ 0010 = we flipped the first bit 1000 | 1010 = 1010
-				//
+				//1010 ^ 0010 = we flipped the first bit 1000
 				break;
 			}
 			default:
@@ -286,12 +297,6 @@ public:
 	{
 
 	}
-
-	void clearDisplay() 
-	{
-		screen.window.clear(sf::Color::Black);
-		screen.window.display();
-	}
 };
 
 
@@ -299,12 +304,13 @@ public:
 int main()
 {
 	Chip8 chip;
+	chip.initScreen();
 
-	chip.fetch();	
+	//chip.fetch();	
 	
-	/*chip.renderPixels();
+	//chip.renderPixels();
 
-	chip.windowEvent();*/
+	chip.windowEvent();
 
 	cin.get();
 
