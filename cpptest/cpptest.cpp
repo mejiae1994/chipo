@@ -32,7 +32,7 @@ public:
 	uint16_t registerI;
 
 	//store addresses the interpreter should return to after subroutines have finished
-	std::vector<uint8_t> stack;
+	std::vector<uint16_t> stack;
 
 	//delay timer decrements at a rate of 60 times per second until it reaches 0
 	uint8_t delayTimer;
@@ -234,6 +234,49 @@ public:
 				PC = (cInstru & 0x0FFF);
 				break;
 			}
+			case 0x200:
+			{
+				cout << "2NNN instruction; Calls subroutine at NNN" << endl;
+				stack.push_back(PC);
+				PC = (cInstru & 0x0FFF);
+				break;
+			}
+			case 0x300:
+			{
+				cout << "3NNN instruction; skin the next instruction if VX == NN" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t NN = (cInstru & 0x00FF);
+
+				if (V[X] == NN)
+				{
+					PC += 2;
+				}
+				break;
+			}
+			case 0x400:
+			{
+				cout << "4NNN instruction; skin the next instruction VX != NN" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t NN = (cInstru & 0x00FF);
+
+				if (V[X] != NN)
+				{
+					PC += 2;
+				}
+				break;
+			}
+			case 0x500:
+			{
+				cout << "4NNN instruction; skin the next instruction VX != NN" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t Y = (cInstru & 0x00F0) >> 4;
+
+				if (V[X] != V[Y])
+				{
+					PC += 2;
+				}
+				break;
+			}
 			case 0x600:
 			{
 				cout << "6XNN instruction" << endl;
@@ -248,6 +291,80 @@ public:
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t NN = (cInstru & 0x00FF);
 				V[X] = V[X] + NN;
+				break;
+			}
+			case 0x800:
+			{
+				cout << "8XYN instruction" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t Y = (cInstru & 0x00F0) >> 4;
+				uint16_t lastNibble = cInstru & 0x000F;
+
+				switch (lastNibble)
+				{
+					case 0x0:
+					{
+						V[X] = V[Y];
+						break;
+					}
+					case 0x1:
+					{
+						V[X] = V[X] | V[Y];
+						break;
+					}
+					case 0x2:
+					{
+						V[X] = V[X] & V[Y];
+						break;
+					}
+					case 0x3:
+					{
+						V[X] = V[X] ^ V[Y];
+						break;
+					}
+					case 0x4:
+					{
+						V[X] = V[X] + V[Y];
+						(V[X] + V[Y] > 0xFF) ? V[0xF] = 1 : V[0xF] = 0;
+						break;
+					}
+					case 0x5:
+					{
+						V[X] = V[X] - V[Y];
+						//there is no borrow if the number you are substracting is bigger than the number you are substacting from.
+						(V[X] > V[Y]) ? V[0xF] = 1 : V[0xF] = 0;
+						break;
+					}
+					case 0x6:
+					{
+						V[0xF] = V[X] & (0x80 >> 7);
+						V[X] = V[X] >> 1;
+						break;
+					}
+					case 0x7:
+					{
+						V[X] = V[Y] - V[X];
+						(V[Y] > V[X]) ? V[0xF] = 1 : V[0xF] = 0;
+						break;
+					}
+					case 0xE:
+					{
+						V[0xF] = V[X] & 0x80;
+						V[X] = V[X] << 1;
+						break;
+					}
+				}
+				break;
+			}
+			case 0x900:
+			{
+				cout << "9XY0 instruction" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t Y = (cInstru & 0x00F0) >> 4;
+				if (V[X] != V[Y])
+				{
+					PC += 2;
+				}
 				break;
 			}
 			case 0xA00:
