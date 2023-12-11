@@ -1,20 +1,18 @@
 #include <SFML/Graphics.hpp>
 #include <Vector>
 #include <iostream>
+#include <fstream>
 #include <thread>
 #include <chrono>
 
 using namespace std;
 
-//64 cols, 32 rows grid[64][32], displays 8 x 15 sprites
-//on will be green, off will be black
 struct Display {
 	const uint8_t cols = 64;
 	const uint8_t rows = 32;
 	const uint8_t pixelsScale = 12;
 	//multi dimensional arrays of rectangles that will be drawn as scaled pixels
 	sf::RenderWindow window;
-	sf::RectangleShape pixels[64 * 32];
 	uint8_t screenGrid[64][32] = {};
 };
 
@@ -99,11 +97,9 @@ public:
 	{
 		while (screen.window.isOpen())
 		{
-			// check all the window's events that were triggered since the last iteration of the loop
 			sf::Event event;
 			while (screen.window.pollEvent(event))
 			{
-				// "close requested" event: we close the window
 				if (event.type == sf::Event::Closed)
 					screen.window.close();
 			}
@@ -113,7 +109,7 @@ public:
 	void initScreen() 
 	{
 		screen.window.create(sf::VideoMode(screen.cols * screen.pixelsScale, screen.rows * screen.pixelsScale), "Chip-8 Emulator", sf::Style::Titlebar | sf::Style::Close);
-		screen.window.setFramerateLimit(30);
+		screen.window.setFramerateLimit(60);
 		screen.window.display();
 	}
 
@@ -127,11 +123,17 @@ public:
 			{
 				if (screen.screenGrid[x][y] == 1)
 				{
-					// Draw a rectangle for an active pixel
+					
 					sf::RectangleShape pixel(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
 					pixel.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
-					pixel.setFillColor(sf::Color::Green);  // Set the color to represent an active pixel
+					pixel.setFillColor(sf::Color::White);
+
+					sf::RectangleShape inner(sf::Vector2f(10, 10));
+					inner.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
+					inner.setFillColor(sf::Color::Green);
+
 					screen.window.draw(pixel);
+					screen.window.draw(inner);
 				}
 			}
 		}
@@ -140,7 +142,6 @@ public:
 
 	void clearScreen()
 	{
-		// Clear the screenGrid by setting all values to 0
 		for (int x = 0; x < screen.cols; ++x)
 		{
 			for (int y = 0; y < screen.rows; ++y)
@@ -165,7 +166,7 @@ public:
 		//for n rows, 
 		for (int row = 0; row < n; row++)
 		{
-			uint8_t mByte = memory[registerI++];
+			uint8_t mByte = memory[registerI + row];
 			
 			for (int col = 0; col < 8; col++)
 			{
@@ -194,7 +195,7 @@ public:
 		decode(cInstruction);
 	}
 
-	void decode(uint16_t cInstru) 
+	void decode(uint16_t cInstru)
 	{
 		uint16_t fNibble = (cInstru & 0xF000) >> 4;
 
@@ -216,7 +217,7 @@ public:
 					case 0x00EE: 
 					{
 						cout << "Return from subroutine" << endl;
-						return;
+						//return;
 						break;
 					}
 					default:
@@ -225,10 +226,11 @@ public:
 						break;
 					}
 				}
+				break;
 			}
 			case 0x100:
 			{
-				cout << " 1NNN instruction; go to NNN" << endl;
+				cout << "1NNN instruction; go to NNN" << endl;
 				PC = (cInstru & 0x0FFF);
 				break;
 			}
@@ -246,6 +248,7 @@ public:
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t NN = (cInstru & 0x00FF);
 				V[X] = V[X] + NN;
+				break;
 			}
 			case 0xA00:
 			{
@@ -256,33 +259,18 @@ public:
 			}
 			case 0xD00:
 			{
-				/*
-				each sprite has a width of 8 pixels and a variable height
-				each pixel can be represent by 1 bit in the 8 pixel byte
-				if the bit is 0, it is off, leave as it is; black color
-				if bit is 1, toggle against the current state; bit = !bit;
-				if bit is toggled from on to off, flag register gets set to 1 
-				otherwise it will be set to 0, this is a collision
-
-				*/
-
 				cout << "DXYN draw instruction" << endl;
-				uint8_t XIndex = (cInstru & 0x0F00) >> 8;
-				uint8_t YIndex = (cInstru & 0x00F0) >> 4;
-				uint8_t NPixelRows = (cInstru & 0x000F);
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t Y = (cInstru & 0x00F0) >> 4;
+				uint8_t N = (cInstru & 0x000F);
 
 				//read N bytes from memory starting at registerI. from I to N 8 bits wide, N bits tall, 8 x N sprite stored
 				// X and Y are the offset, where the sprite is being drawn from, location
 				
-				// v registers of Byte 0 - 15;
-				uint8_t x = V[XIndex];
-				uint8_t y = V[YIndex];
+				uint8_t vx = V[X];
+				uint8_t vy = V[Y];
 
-				drawSprite(x, y, NPixelRows);
-
-				//XOR sprite against current framebuffer, if any pixels are erased, then set VF to 1, otherwise VF to 0
-				//XOR against current pixels, that toggles, 
-				//1010 ^ 0010 = we flipped the first bit 1000
+				drawSprite(vx, vy, N);
 				break;
 			}
 			default:
@@ -293,25 +281,49 @@ public:
 		}
 	}
 
-	void execute() 
+	void resetState()
 	{
+		registerI = 0;
+		PC = 0x200;
+		memset(V, 0, sizeof(V));
 
+		ifstream in;
+		in.open("IBM Logo.ch8", ios::binary | ios::in | ios::ate);
+
+		if (in.is_open())
+		{
+			cout << "file is opened" << endl;
+			in.seekg(0, std::ios_base::end);
+			auto length = in.tellg();
+			in.seekg(0, std::ios_base::beg);
+			in.read(reinterpret_cast<char*>(&memory[512]), length);
+			in.close();
+		}
 	}
 };
-
 
 
 int main()
 {
 	Chip8 chip;
-	chip.initScreen();
+	chip.resetState();
 
-	//chip.fetch();	
-	
-	//chip.renderPixels();
+	while (chip.screen.window.isOpen())
+	{
+		chip.fetch();
 
-	chip.windowEvent();
+		// You might want to include a delay or sleep here
+		// to control the emulation speed
+		std::this_thread::sleep_for(std::chrono::milliseconds(16)); // 60 FPS
 
+		// Check for window events
+		sf::Event event;
+		while (chip.screen.window.pollEvent(event))
+		{
+			if (event.type == sf::Event::Closed)
+				chip.screen.window.close();
+		}
+	}
 	cin.get();
 
 	return 0;
