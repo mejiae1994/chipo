@@ -16,6 +16,11 @@ struct Display {
 	uint8_t screenGrid[64][32] = {};
 };
 
+struct Keypad
+{
+
+};
+
 class Chip8 {
 
 public:
@@ -554,6 +559,98 @@ public:
 			in.close();
 		}
 	}
+
+	void getInput(sf::Keyboard::Key kPressed)
+	{
+		switch (kPressed)
+		{
+			case sf::Keyboard::Num1:
+			{
+				cout << "num 1 key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::Num2:
+			{
+				cout << "num 2 key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::Num3:
+			{
+				cout << "num 3 key pressed"  << endl;
+				break;
+			}
+			case sf::Keyboard::Key::Num4:
+			{
+				cout << "num 4 key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::Q:
+			{
+				cout << "Q key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::W:
+			{
+				cout << "W key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::E:
+			{
+				cout << "E key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::R:
+			{
+				cout << "R key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::A:
+			{
+				cout << "A key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::S:
+			{
+				cout << "S key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::D:
+			{
+				cout << "D key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::F:
+			{
+				cout << "F key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::Z:
+			{
+				cout << "Z key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::X:
+			{
+				cout << "X key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::C:
+			{
+				cout << "C key pressed" << endl;
+				break;
+			}
+			case sf::Keyboard::Key::V:
+			{
+				cout << "V key pressed" << endl;
+				break;
+			}
+			default:
+			{
+				cout << "unknown key";
+				break;
+			}
+		}
+	}
 };
 
 
@@ -564,7 +661,7 @@ int main()
 
 	while (chip.screen.window.isOpen())
 	{
-		chip.fetch();
+		//chip.fetch();
 
 		// You might want to include a delay or sleep here
 		// to control the emulation speed
@@ -576,6 +673,12 @@ int main()
 		{
 			if (event.type == sf::Event::Closed)
 				chip.screen.window.close();
+
+			if (event.type == sf::Event::KeyPressed)
+			{
+				chip.getInput(event.key.code);
+			}
+			
 		}
 	}
 	cin.get();
