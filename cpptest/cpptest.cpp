@@ -43,6 +43,24 @@ public:
 	//general purpose variable register
 	uint8_t V[0x10];
 
+	uint8_t fonts[80] = {
+	   0xF0, 0x90, 0x90, 0x90, 0xF0,
+	   0x20, 0x60, 0x20, 0x20, 0x70,
+	   0xF0, 0x10, 0xF0, 0x80, 0xF0,
+	   0xF0, 0x10, 0xF0, 0x10, 0xF0,
+	   0x90, 0x90, 0xF0, 0x10, 0x10,
+	   0xF0, 0x80, 0xF0, 0x10, 0xF0,
+	   0xF0, 0x80, 0xF0, 0x90, 0xF0,
+	   0xF0, 0x10, 0x20, 0x40, 0x40,
+	   0xF0, 0x90, 0xF0, 0x90, 0xF0,
+	   0xF0, 0x90, 0xF0, 0x10, 0xF0,
+	   0xF0, 0x90, 0xF0, 0x90, 0x90,
+	   0xE0, 0x90, 0xE0, 0x90, 0xE0,
+	   0xF0, 0x80, 0x80, 0x80, 0xF0,
+	   0xE0, 0x90, 0x90, 0x90, 0xE0,
+	   0xF0, 0x80, 0xF0, 0x80, 0xF0,
+	   0xF0, 0x80, 0xF0, 0x80, 0x80 };
+
 	Chip8() 
 	{
 		initScreen();
@@ -374,6 +392,21 @@ public:
 				registerI = NNN;
 				break;
 			}
+			case 0xB00:
+			{
+				cout << "BNNN instruction" << endl;
+				uint16_t NNN = cInstru & 0x0FFF;
+				PC = NNN + V[0x0];
+				break;
+			}
+			case 0xC00:
+			{
+				cout << "CXNN instruction" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t NN = (cInstru & 0x00FF);
+				V[X] = (rand() % 255) & NN;
+				break;
+			}
 			case 0xD00:
 			{
 				cout << "DXYN draw instruction" << endl;
@@ -390,6 +423,96 @@ public:
 				drawSprite(vx, vy, N);
 				break;
 			}
+			case 0xE00:
+			{
+				cout << "EX instructions" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t argument = cInstru & 0x00FF;
+
+				switch (argument)
+				{
+					case 0x9E:
+					{
+						cout << "keyop" << endl;
+
+						break;
+					}
+					case 0xA1:
+					{
+						cout << "keyop" << endl;
+						break;
+					}
+				}
+				break;
+			}
+			case 0xF00: 
+			{
+				cout << "FX instructions" << endl;
+				uint8_t X = (cInstru & 0x0F00) >> 8;
+				uint8_t argument = cInstru & 0x00FF;
+
+				switch (argument)
+				{
+					case 0x7:
+					{
+						V[X] = delayTimer;
+						break;
+					}
+					case 0xA:
+					{
+						uint8_t k = keyPressed();
+						V[X] = k;
+						break;
+					}
+					case 0x15:
+					{
+						delayTimer = V[X];
+						break;
+					}
+					case 0x18:
+					{
+						soundTimer = V[X];
+						break;
+					}
+					case 0x1E:
+					{
+						registerI = registerI + V[X];
+						break;
+					}
+					case 0x29:
+					{
+						registerI = memory[V[X]];
+						break;
+					}
+					case 0x33:
+					{
+						uint8_t bcd = V[X];
+
+						memory[registerI] = bcd / 100;
+						memory[registerI + 1] = (bcd / 10) % 10;
+						memory[registerI + 2] = bcd % 10;
+						break;
+					}
+					case 0x55:
+					{
+
+						for (int i = 0; i <= X; i++)
+						{
+							memory[registerI + i] = V[i];
+						}
+						break;
+					}
+					case 0x65:
+					{
+						for (int i = 0; i <= X; i++)
+						{
+							V[i] = memory[registerI + i];
+						}
+						break;
+					}
+				}
+				break;
+			}
 			default:
 			{
 				cout << "can't interpret opcode" << endl;
@@ -398,11 +521,25 @@ public:
 		}
 	}
 
+	uint8_t keyPressed()
+	{
+		while (true)
+		{
+			/*if (kPressed)
+			{
+				return kPressed;
+			}*/
+		}
+		return 0;
+	}
+
 	void resetState()
 	{
 		registerI = 0;
 		PC = 0x200;
 		memset(V, 0, sizeof(V));
+
+		memcpy(&memory[0x50], &fonts, sizeof(fonts));
 
 		ifstream in;
 		in.open("IBM Logo.ch8", ios::binary | ios::in | ios::ate);
