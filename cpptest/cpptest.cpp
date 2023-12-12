@@ -11,14 +11,10 @@ struct Display {
 	const uint8_t cols = 64;
 	const uint8_t rows = 32;
 	const uint8_t pixelsScale = 12;
-	//multi dimensional arrays of rectangles that will be drawn as scaled pixels
+
 	sf::RenderWindow window;
+	//2d array will be drawn as upscaled pixels
 	uint8_t screenGrid[64][32] = {};
-};
-
-struct Keypad
-{
-
 };
 
 class Chip8 {
@@ -48,6 +44,12 @@ public:
 	//general purpose variable register
 	uint8_t V[0x10];
 
+	//keyboard input 16 keys 0-F
+	uint8_t Keys[16];
+
+	//mute instructions for debug
+	bool mute = true;
+
 	uint8_t fonts[80] = {
 	   0xF0, 0x90, 0x90, 0x90, 0xF0,
 	   0x20, 0x60, 0x20, 0x20, 0x70,
@@ -69,51 +71,6 @@ public:
 	Chip8() 
 	{
 		initScreen();
-		//ClearIn();
-		//returnSub();
-		//gotoNNN();
-		//callNNN();
-		//sixXNN();
-		//sevXNN();
-		//DXYN();
-	}
-
-	void callNNN() {
-		memory[512] = 0x01;
-		memory[513] = 0xAB;
-	}
-
-	void returnSub() {
-		memory[512] = 0x00;
-		memory[513] = 0xEE;
-	}
-
-	void ClearIn() {
-		memory[512] = 0x00;
-		memory[513] = 0xE0;
-	}
-
-	void gotoNNN() {
-		memory[512] = 0x11;
-		memory[513] = 0x23;
-	}
-
-	void sixXNN()
-	{
-		memory[512] = 0x6F;
-		memory[513] = 0xAB;
-	}
-
-	void sevXNN()
-	{
-		memory[512] = 0x7F;
-		memory[513] = 0xAB;
-	}
-
-	void DXYN()
-	{
-		memory[512] = 0xDF;
-		memory[513] = 0xAB;
 	}
 
 	void windowEvent() 
@@ -146,17 +103,16 @@ public:
 			{
 				if (screen.screenGrid[x][y] == 1)
 				{
-					
 					sf::RectangleShape pixel(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
 					pixel.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
-					pixel.setFillColor(sf::Color::White);
+					pixel.setFillColor(sf::Color::Green);
 
-					sf::RectangleShape inner(sf::Vector2f(10, 10));
+					/*sf::RectangleShape inner(sf::Vector2f(10, 10));
 					inner.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
-					inner.setFillColor(sf::Color::Green);
+					inner.setFillColor(sf::Color::Green);*/
 
 					screen.window.draw(pixel);
-					screen.window.draw(inner);
+					//screen.window.draw(inner);
 				}
 			}
 		}
@@ -184,7 +140,7 @@ public:
 		uint8_t yCoord = y % screen.rows;
 
 		//set VF to 0
-		V[0xF] = 1;
+		V[0xF] = 0;
 
 		//for n rows, 
 		for (int row = 0; row < n; row++)
@@ -214,7 +170,7 @@ public:
 		uint16_t cInstruction = (static_cast<uint16_t>(byte1) << 8) | byte2;;
 		PC += 2;
 
-		cout << "cInstru: " << hex << cInstruction << endl;
+		if (!mute) cout << "cInstru: " << hex << cInstruction << endl;
 		decode(cInstruction);
 	}
 
@@ -222,30 +178,31 @@ public:
 	{
 		uint16_t fNibble = (cInstru & 0xF000) >> 4;
 
-		cout << "nibble: " << hex << fNibble << endl;
+		if (!mute) cout << "nibble: " << hex << fNibble << endl;
 
 		switch (fNibble) {
 			case 0x0: 
 			{
-				uint16_t argument = cInstru & 0x0FFF;
+				uint16_t argument = cInstru & 0x00FF;
 
 				switch (argument)
 				{
-					case 0x00E0: 
+					case 0xE0: 
 					{
-						cout << "Clear the screen" << endl;
+						if (!mute) cout << "Clear the screen" << endl;
 						clearScreen();
 						break;
 					}
-					case 0x00EE: 
+					case 0xEE: 
 					{
-						cout << "Return from subroutine" << endl;
-						//return;
+						if (!mute) cout << "Return from subroutine" << endl;
+						PC = stack.back();
+						stack.pop_back();
 						break;
 					}
 					default:
 					{
-						cout << "Call machine code routine" << endl;
+						if (!mute) cout << "Call machine code routine" << endl;
 						break;
 					}
 				}
@@ -253,20 +210,20 @@ public:
 			}
 			case 0x100:
 			{
-				cout << "1NNN instruction; go to NNN" << endl;
+				if (!mute) cout << "1NNN instruction; go to NNN" << endl;
 				PC = (cInstru & 0x0FFF);
 				break;
 			}
 			case 0x200:
 			{
-				cout << "2NNN instruction; Calls subroutine at NNN" << endl;
+				if (!mute) cout << "2NNN instruction; Calls subroutine at NNN" << endl;
 				stack.push_back(PC);
 				PC = (cInstru & 0x0FFF);
 				break;
 			}
 			case 0x300:
 			{
-				cout << "3NNN instruction; skin the next instruction if VX == NN" << endl;
+				if (!mute) cout << "3NNN instruction; skin the next instruction if VX == NN" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t NN = (cInstru & 0x00FF);
 
@@ -278,7 +235,7 @@ public:
 			}
 			case 0x400:
 			{
-				cout << "4NNN instruction; skin the next instruction VX != NN" << endl;
+				if (!mute) cout << "4NNN instruction; skin the next instruction VX != NN" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t NN = (cInstru & 0x00FF);
 
@@ -290,11 +247,11 @@ public:
 			}
 			case 0x500:
 			{
-				cout << "4NNN instruction; skin the next instruction VX != NN" << endl;
+				if (!mute) cout << "5XY0 instruction; skin the next instruction VX != NN" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t Y = (cInstru & 0x00F0) >> 4;
 
-				if (V[X] != V[Y])
+				if (V[X] == V[Y])
 				{
 					PC += 2;
 				}
@@ -302,7 +259,7 @@ public:
 			}
 			case 0x600:
 			{
-				cout << "6XNN instruction" << endl;
+				if (!mute) cout << "6XNN instruction" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t NN = (cInstru & 0x00FF);
 				V[X] = NN;
@@ -310,7 +267,7 @@ public:
 			}
 			case 0x700:
 			{
-				cout << "7XNN instruction" << endl;
+				if (!mute) cout << "7XNN instruction" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t NN = (cInstru & 0x00FF);
 				V[X] = V[X] + NN;
@@ -318,7 +275,7 @@ public:
 			}
 			case 0x800:
 			{
-				cout << "8XYN instruction" << endl;
+				if (!mute) cout << "8XYN instruction" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t Y = (cInstru & 0x00F0) >> 4;
 				uint16_t lastNibble = cInstru & 0x000F;
@@ -381,7 +338,7 @@ public:
 			}
 			case 0x900:
 			{
-				cout << "9XY0 instruction" << endl;
+				if (!mute) cout << "9XY0 instruction" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t Y = (cInstru & 0x00F0) >> 4;
 				if (V[X] != V[Y])
@@ -392,21 +349,21 @@ public:
 			}
 			case 0xA00:
 			{
-				cout << "ANNN instruction set index register i" << endl;
+				if (!mute) cout << "ANNN instruction set index register i" << endl;
 				uint16_t NNN = cInstru & 0x0FFF;
 				registerI = NNN;
 				break;
 			}
 			case 0xB00:
 			{
-				cout << "BNNN instruction" << endl;
+				if (!mute) cout << "BNNN instruction" << endl;
 				uint16_t NNN = cInstru & 0x0FFF;
 				PC = NNN + V[0x0];
 				break;
 			}
 			case 0xC00:
 			{
-				cout << "CXNN instruction" << endl;
+				if (!mute) cout << "CXNN instruction" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t NN = (cInstru & 0x00FF);
 				V[X] = (rand() % 255) & NN;
@@ -430,7 +387,7 @@ public:
 			}
 			case 0xE00:
 			{
-				cout << "EX instructions" << endl;
+				if (!mute) cout << "EX instructions" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t argument = cInstru & 0x00FF;
 
@@ -438,13 +395,20 @@ public:
 				{
 					case 0x9E:
 					{
-						cout << "keyop" << endl;
-
+						cout << "keyop EX9E" << endl;
+						if (Keys[V[X]] == 1)
+						{
+							PC += 2;
+						}
 						break;
 					}
 					case 0xA1:
 					{
-						cout << "keyop" << endl;
+						cout << "keyop EXA1" << endl;
+						if (Keys[V[X]] != 1)
+						{
+							PC += 2;
+						}
 						break;
 					}
 				}
@@ -452,7 +416,7 @@ public:
 			}
 			case 0xF00: 
 			{
-				cout << "FX instructions" << endl;
+				if (!mute) cout << "FX instructions" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t argument = cInstru & 0x00FF;
 
@@ -465,8 +429,8 @@ public:
 					}
 					case 0xA:
 					{
-						uint8_t k = keyPressed();
-						V[X] = k;
+						uint8_t k = waitInput();
+						V[X] = Keys[k];
 						break;
 					}
 					case 0x15:
@@ -526,16 +490,131 @@ public:
 		}
 	}
 
-	uint8_t keyPressed()
+	uint8_t waitInput()
 	{
+		bool keyFound = 0;
 		while (true)
 		{
-			/*if (kPressed)
+			for (int i = 0; i <= 15; i++)
 			{
-				return kPressed;
-			}*/
+				if (Keys[i] == 1)
+				{
+					keyFound = i;
+					break;
+				}
+			}
+			if (keyFound > 0) return keyFound;
 		}
-		return 0;
+	}
+
+	void getInput(sf::Keyboard::Key kPressed)
+	{
+		memset(Keys, 0, sizeof(Keys));
+
+		switch (kPressed)
+		{
+			case sf::Keyboard::Num1:
+			{
+				cout << "num 1 key pressed" << endl;
+				Keys[0x0] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::Num2:
+			{
+				cout << "num 2 key pressed" << endl;
+				Keys[0x1] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::Num3:
+			{
+				cout << "num 3 key pressed"  << endl;
+				Keys[0x2] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::Num4:
+			{
+				cout << "num 4 key pressed" << endl;
+				Keys[0x3] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::Q:
+			{
+				cout << "Q key pressed" << endl;
+				Keys[0x4] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::W:
+			{
+				cout << "W key pressed" << endl;
+				Keys[0x5] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::E:
+			{
+				cout << "E key pressed" << endl;
+				Keys[0x6] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::R:
+			{
+				cout << "R key pressed" << endl;
+				Keys[0x7] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::A:
+			{
+				cout << "A key pressed" << endl;
+				Keys[0x8] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::S:
+			{
+				cout << "S key pressed" << endl;
+				Keys[0x9] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::D:
+			{
+				cout << "D key pressed" << endl;
+				Keys[0xA] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::F:
+			{
+				cout << "F key pressed" << endl;
+				Keys[0xB] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::Z:
+			{
+				cout << "Z key pressed" << endl;
+				Keys[0xC] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::X:
+			{
+				cout << "X key pressed" << endl;
+				Keys[0xD] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::C:
+			{
+				cout << "C key pressed" << endl;
+				Keys[0xE] = 1;
+				break;
+			}
+			case sf::Keyboard::Key::V:
+			{
+				cout << "V key pressed" << endl;
+				Keys[0xF] = 1;
+				break;
+			}
+			default:
+			{
+				cout << "unknown key";
+				break;
+			}
+		}
 	}
 
 	void resetState()
@@ -546,8 +625,13 @@ public:
 
 		memcpy(&memory[0x50], &fonts, sizeof(fonts));
 
+		string ibmLogo = "IBGM Logo.ch8";
+		string testOpcode = "test_opcode.ch8";
+		string pong = "Pong.ch8";
+		string invader = "invaders.c8";
+
 		ifstream in;
-		in.open("IBM Logo.ch8", ios::binary | ios::in | ios::ate);
+		in.open(invader, ios::binary | ios::in | ios::ate);
 
 		if (in.is_open())
 		{
@@ -557,98 +641,6 @@ public:
 			in.seekg(0, std::ios_base::beg);
 			in.read(reinterpret_cast<char*>(&memory[512]), length);
 			in.close();
-		}
-	}
-
-	void getInput(sf::Keyboard::Key kPressed)
-	{
-		switch (kPressed)
-		{
-			case sf::Keyboard::Num1:
-			{
-				cout << "num 1 key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::Num2:
-			{
-				cout << "num 2 key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::Num3:
-			{
-				cout << "num 3 key pressed"  << endl;
-				break;
-			}
-			case sf::Keyboard::Key::Num4:
-			{
-				cout << "num 4 key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::Q:
-			{
-				cout << "Q key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::W:
-			{
-				cout << "W key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::E:
-			{
-				cout << "E key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::R:
-			{
-				cout << "R key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::A:
-			{
-				cout << "A key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::S:
-			{
-				cout << "S key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::D:
-			{
-				cout << "D key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::F:
-			{
-				cout << "F key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::Z:
-			{
-				cout << "Z key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::X:
-			{
-				cout << "X key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::C:
-			{
-				cout << "C key pressed" << endl;
-				break;
-			}
-			case sf::Keyboard::Key::V:
-			{
-				cout << "V key pressed" << endl;
-				break;
-			}
-			default:
-			{
-				cout << "unknown key";
-				break;
-			}
 		}
 	}
 };
@@ -661,11 +653,7 @@ int main()
 
 	while (chip.screen.window.isOpen())
 	{
-		//chip.fetch();
-
-		// You might want to include a delay or sleep here
-		// to control the emulation speed
-		std::this_thread::sleep_for(std::chrono::milliseconds(16)); // 60 FPS
+		chip.fetch();
 
 		// Check for window events
 		sf::Event event;
@@ -678,7 +666,12 @@ int main()
 			{
 				chip.getInput(event.key.code);
 			}
-			
+		}
+
+		// Update timers
+		if (chip.delayTimer > 0)
+		{
+			chip.delayTimer--;
 		}
 	}
 	cin.get();
