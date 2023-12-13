@@ -75,18 +75,7 @@ public:
 		initScreen();
 	}
 
-	void windowEvent() 
-	{
-		while (screen.window.isOpen())
-		{
-			sf::Event event;
-			while (screen.window.pollEvent(event))
-			{
-				if (event.type == sf::Event::Closed)
-					screen.window.close();
-			}
-		}
-	}
+
 
 	void initScreen() 
 	{
@@ -367,7 +356,7 @@ public:
 			}
 			case 0xD00:
 			{
-				cout << "DXYN draw instruction" << endl;
+				if (!mute) cout << "DXYN draw instruction" << endl;
 				uint8_t X = (cInstru & 0x0F00) >> 8;
 				uint8_t Y = (cInstru & 0x00F0) >> 4;
 				uint8_t N = (cInstru & 0x000F);
@@ -391,7 +380,7 @@ public:
 				{
 					case 0x9E:
 					{
-						cout << "keyop EX9E" << endl;
+						if (!mute) cout << "keyop EX9E" << endl;
 						if (Keys[V[X]] == 1)
 						{
 							PC += 2;
@@ -400,7 +389,7 @@ public:
 					}
 					case 0xA1:
 					{
-						cout << "keyop EXA1" << endl;
+						if (!mute) cout << "keyop EXA1" << endl;
 						if (Keys[V[X]] != 1)
 						{
 							PC += 2;
@@ -425,8 +414,23 @@ public:
 					}
 					case 0xA:
 					{
-						uint8_t k = waitInput();
-						V[X] = Keys[k];
+						cout << "OxA instruction" << endl;
+						bool kPressed = false;
+
+						for (uint8_t i = 0; i < 16; i++)
+						{
+							if (Keys[i] == 1)
+							{
+								kPressed = true;
+								V[X] = i & 0x00FF;
+								break;
+							}
+						}
+
+						if (!kPressed)
+						{
+							PC -= 2;
+						}
 						break;
 					}
 					case 0x15:
@@ -480,7 +484,7 @@ public:
 			}
 			default:
 			{
-				cout << "can't interpret opcode" << endl;
+				if(!mute) cout << "can't interpret opcode" << endl;
 				break;
 			}
 		}
@@ -505,8 +509,6 @@ public:
 
 	void getInput(sf::Keyboard::Key kPressed)
 	{
-		memset(Keys, 0, sizeof(Keys));
-
 		switch (kPressed)
 		{
 			case sf::Keyboard::Num1:
@@ -613,6 +615,96 @@ public:
 		}
 	}
 
+	void releaseInput(sf::Keyboard::Key kReleased)
+	{
+		switch (kReleased)
+		{
+		case sf::Keyboard::Num1:
+			cout << "num 1 key released" << endl;
+			Keys[0x0] = 0;
+			break;
+
+		case sf::Keyboard::Num2:
+			cout << "num 2 key released" << endl;
+			Keys[0x1] = 0;
+			break;
+
+		case sf::Keyboard::Num3:
+			cout << "num 3 key released" << endl;
+			Keys[0x2] = 0;
+			break;
+
+		case sf::Keyboard::Num4:
+			cout << "num 4 key released" << endl;
+			Keys[0x3] = 0;
+			break;
+
+		case sf::Keyboard::Q:
+			cout << "Q key released" << endl;
+			Keys[0x4] = 0;
+			break;
+
+		case sf::Keyboard::W:
+			cout << "W key released" << endl;
+			Keys[0x5] = 0;
+			break;
+
+		case sf::Keyboard::E:
+			cout << "E key released" << endl;
+			Keys[0x6] = 0;
+			break;
+
+		case sf::Keyboard::R:
+			cout << "R key released" << endl;
+			Keys[0x7] = 0;
+			break;
+
+		case sf::Keyboard::A:
+			cout << "A key released" << endl;
+			Keys[0x8] = 0;
+			break;
+
+		case sf::Keyboard::S:
+			cout << "S key released" << endl;
+			Keys[0x9] = 0;
+			break;
+
+		case sf::Keyboard::D:
+			cout << "D key released" << endl;
+			Keys[0xA] = 0;
+			break;
+
+		case sf::Keyboard::F:
+			cout << "F key released" << endl;
+			Keys[0xB] = 0;
+			break;
+
+		case sf::Keyboard::Z:
+			cout << "Z key released" << endl;
+			Keys[0xC] = 0;
+			break;
+
+		case sf::Keyboard::X:
+			cout << "X key released" << endl;
+			Keys[0xD] = 0;
+			break;
+
+		case sf::Keyboard::C:
+			cout << "C key released" << endl;
+			Keys[0xE] = 0;
+			break;
+
+		case sf::Keyboard::V:
+			cout << "V key released" << endl;
+			Keys[0xF] = 0;
+			break;
+
+		default:
+			cout << "unknown key released" << endl;
+			break;
+		}
+	}	
+
 	void resetState()
 	{
 		registerI = 0;
@@ -648,7 +740,7 @@ int main()
 	chip.resetState();
 
 	sf::Clock clock;
-	sf::Time tpf = sf::seconds(1.f / 600);
+	sf::Time tpf = sf::seconds(1.f / 900);
 	sf::Time accumulator = sf::Time::Zero;
 	sf::Time timerTpf = sf::seconds(1.f / 60.f);
 	sf::Time timerAccumulator = sf::Time::Zero;
@@ -665,6 +757,10 @@ int main()
 			if (event.type == sf::Event::KeyPressed)
 			{
 				chip.getInput(event.key.code);
+			}
+			if (event.type == sf::Event::KeyReleased)
+			{
+				chip.releaseInput(event.key.code);
 			}
 		}
 
