@@ -93,9 +93,16 @@ public:
 		screen.window.display();
 	}
 
-	void renderPixels() 
+	void renderPixels()
 	{
 		screen.window.clear(sf::Color::Black);
+
+		sf::RectangleShape pixel(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
+		pixel.setFillColor(sf::Color::Green);
+
+		sf::RectangleShape bg(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
+		bg.setFillColor(sf::Color::Black);
+
 
 		for (int x = 0; x < screen.cols; ++x)
 		{
@@ -103,16 +110,17 @@ public:
 			{
 				if (screen.screenGrid[x][y] == 1)
 				{
-					sf::RectangleShape pixel(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
 					pixel.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
-					pixel.setFillColor(sf::Color::Green);
-
-					/*sf::RectangleShape inner(sf::Vector2f(10, 10));
-					inner.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
-					inner.setFillColor(sf::Color::Green);*/
-
 					screen.window.draw(pixel);
-					//screen.window.draw(inner);
+				}
+				else
+				{
+					if (screen.screenGrid[x][y] == 1)
+					{
+						bg.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
+						screen.window.draw(bg);
+					
+					}
 				}
 			}
 		}
@@ -631,7 +639,7 @@ public:
 		string invader = "invaders.c8";
 
 		ifstream in;
-		in.open(invader, ios::binary | ios::in | ios::ate);
+		in.open(testOpcode, ios::binary | ios::in | ios::ate);
 
 		if (in.is_open())
 		{
@@ -653,8 +661,6 @@ int main()
 
 	while (chip.screen.window.isOpen())
 	{
-		chip.fetch();
-
 		// Check for window events
 		sf::Event event;
 		while (chip.screen.window.pollEvent(event))
@@ -667,6 +673,8 @@ int main()
 				chip.getInput(event.key.code);
 			}
 		}
+
+		chip.fetch();
 
 		// Update timers
 		if (chip.delayTimer > 0)
