@@ -1,11 +1,16 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <Vector>
 #include <iostream>
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <cmath>
 
 using namespace std;
+
+constexpr auto PI = 3.14159265358979323846;
+constexpr auto twoPI = 6.28318530718f;
 
 struct Display {
 	const uint8_t cols = 64;
@@ -17,6 +22,17 @@ struct Display {
 	uint8_t screenGrid[64][32] = {};
 };
 
+struct Audio
+{
+	int sampleRate = 44100;
+	double frequency = 220.0f;
+	double duration = 3.0;
+	sf::Sound sound;
+	sf::SoundBuffer soundBuffer;
+	std::vector<int16_t> squareWaveBard;
+};
+
+
 class Chip8 {
 
 public:
@@ -25,6 +41,8 @@ public:
 
 	//64 x 32 pixel monochrome display; black or white
 	Display screen;
+
+	Audio audio; 
 
 	bool draw = true;
 
@@ -112,6 +130,19 @@ public:
 			{
 				screen.screenGrid[x][y] = 0;
 			}
+		}
+	}
+	
+	void initAudio()
+	{
+		audio.sound.setBuffer(audio.soundBuffer);
+		audio.sound.setLoop(true);
+		audio.sound.setVolume(10.0f);
+		audio.squareWaveBard = generateSquareWaveBard(audio.sampleRate, audio.frequency, audio.duration);
+
+		if (!audio.soundBuffer.loadFromSamples(audio.squareWaveBard.data(), audio.sampleRate, 1, audio.sampleRate))
+		{
+			throw "Error loading sound sample";
 		}
 	}
 
@@ -490,21 +521,69 @@ public:
 		}
 	}
 
-	uint8_t waitInput()
+	std::vector<int16_t> generateSquareWaveTwo(double frequency, double duration, double amplitude, int sampleRate)
 	{
-		bool keyFound = 0;
-		while (true)
+		int numSamples = static_cast<int>(duration * sampleRate);
+		std::vector<int16_t> squareWave(numSamples);
+
+		for (int i = 0; i < numSamples; ++i)
 		{
-			for (int i = 0; i <= 15; i++)
-			{
-				if (Keys[i] == 1)
-				{
-					keyFound = i;
-					break;
-				}
-			}
-			if (keyFound > 0) return keyFound;
+			int16_t  t = static_cast<double>(i) / sampleRate;
+			squareWave[i] = amplitude * std::sin(2.0 * PI * frequency * t) > 0.0 ? amplitude : -amplitude;
 		}
+
+		return squareWave;
+	}
+
+	std::vector<int16_t> generateSquareWaveBard(int sampleRate, double frequency, double duration, double amplitude = 32767)
+	{
+		// Calculate parameters
+		const double period = 1.0 / frequency;
+		const int numSamples = static_cast<int>(sampleRate * duration);
+		amplitude = amplitude * .8f;
+
+		// Initialize empty vector
+		std::vector<int16_t> samples(numSamples);
+
+		// Generate square wave samples
+		for (int i = 0; i < numSamples; ++i)
+		{
+			double phase = fmod(2.0 * twoPI * i / sampleRate, period);
+			samples[i] = static_cast<int16_t>(amplitude * (phase < period / 2 ? 1.0 : -1.0));
+		}
+
+		return samples;
+	}
+
+	std::vector<std::int16_t> generateSquareWave(float soundFrequency, std::uint32_t sampleRate)
+	{
+		
+		std::vector<std::int16_t> rawSound(sampleRate);
+		float amp = 0.9f;
+
+		for (std::size_t i = 0; i < rawSound.size(); i++)
+		{
+			float time = static_cast<float>(i);
+			std::int16_t out = 0;
+			std::int16_t amplitude = static_cast<std::int16_t>(32767.f * amp);
+			std::int32_t tpc = static_cast<std::int32_t>(sampleRate / soundFrequency);
+			std::int32_t cyclepart = static_cast<std::int32_t>(time) % tpc;
+			std::int32_t halfcycle = tpc / 2;
+
+			if (cyclepart < halfcycle)
+			{
+				out = amplitude;
+			}
+
+			rawSound.at(i) = out;
+		}
+
+		return rawSound;
+	}
+
+	void playSound()
+	{
+		cout << "playing sound" << endl;
 	}
 
 	void getInput(sf::Keyboard::Key kPressed)
@@ -716,6 +795,7 @@ public:
 		string ibmLogo = "IBGM Logo.ch8";
 		string testOpcode = "test_opcode.ch8";
 		string pong = "Pong.ch8";
+		string tetris = "Tetris.ch8";
 		string invader = "invaders.c8";
 
 		ifstream in;
@@ -723,13 +803,13 @@ public:
 
 		if (in.is_open())
 		{
-			cout << "file is opened" << endl;
+			cout << "Roam Loaded" << endl;
 			in.seekg(0, std::ios_base::end);
 			auto length = in.tellg();
 			in.seekg(0, std::ios_base::beg);
 			in.read(reinterpret_cast<char*>(&memory[512]), length);
 			in.close();
-		}
+		}	
 	}
 };
 
@@ -738,9 +818,10 @@ int main()
 {
 	Chip8 chip;
 	chip.resetState();
+	chip.initAudio();
 
 	sf::Clock clock;
-	sf::Time tpf = sf::seconds(1.f / 900);
+	sf::Time tpf = sf::seconds(1.f / 1000);
 	sf::Time accumulator = sf::Time::Zero;
 	sf::Time timerTpf = sf::seconds(1.f / 60.f);
 	sf::Time timerAccumulator = sf::Time::Zero;
@@ -777,7 +858,22 @@ int main()
 			{
 				chip.delayTimer--;
 			}
-
+			if (chip.soundTimer > 0)
+			{
+				
+				if (chip.audio.sound.getStatus() != sf::Sound::Playing)
+				{
+					chip.audio.sound.play();
+				}
+					chip.soundTimer--;
+			}
+			else
+			{
+				if (chip.audio.sound.getStatus() == sf::Sound::Playing)
+				{
+					chip.audio.sound.stop();
+				}
+			}
 			timerAccumulator = sf::Time::Zero;
 		}
 
@@ -790,6 +886,3 @@ int main()
 	}
 	return 0;
 }
-
-
-
