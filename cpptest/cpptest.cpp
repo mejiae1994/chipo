@@ -26,6 +26,8 @@ public:
 	//64 x 32 pixel monochrome display; black or white
 	Display screen;
 
+	bool draw = true;
+
 	//program counter, points at the current instruction in memory
 	uint16_t PC = 0x200;
 
@@ -89,8 +91,6 @@ public:
 	void initScreen() 
 	{
 		screen.window.create(sf::VideoMode(screen.cols * screen.pixelsScale, screen.rows * screen.pixelsScale), "Chip-8 Emulator", sf::Style::Titlebar | sf::Style::Close);
-		screen.window.setFramerateLimit(60);
-		screen.window.display();
 	}
 
 	void renderPixels()
@@ -99,10 +99,6 @@ public:
 
 		sf::RectangleShape pixel(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
 		pixel.setFillColor(sf::Color::Green);
-
-		sf::RectangleShape bg(sf::Vector2f(screen.pixelsScale, screen.pixelsScale));
-		bg.setFillColor(sf::Color::Black);
-
 
 		for (int x = 0; x < screen.cols; ++x)
 		{
@@ -113,18 +109,10 @@ public:
 					pixel.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
 					screen.window.draw(pixel);
 				}
-				else
-				{
-					if (screen.screenGrid[x][y] == 1)
-					{
-						bg.setPosition(x * screen.pixelsScale, y * screen.pixelsScale);
-						screen.window.draw(bg);
-					
-					}
-				}
 			}
 		}
 		screen.window.display();
+		draw = false;
 	}
 
 	void clearScreen()
@@ -136,8 +124,6 @@ public:
 				screen.screenGrid[x][y] = 0;
 			}
 		}
-		screen.window.clear(sf::Color::Black);
-		screen.window.display();
 	}
 
 	void drawSprite(uint8_t x, uint8_t y, uint8_t n)
@@ -159,15 +145,16 @@ public:
 			{
 				//in here we need to grab the bits from Mbyte which represent each pixel and whether they are on or off
 				uint8_t bytePixel = ((mByte & 0x80 >> col) != 0) ? 1 : 0;
-				uint8_t collision = (screen.screenGrid[col + xCoord][row + yCoord] ^ bytePixel == 1) ? 1 : 0;
-				if (collision)
+				uint8_t currentPixel = screen.screenGrid[col + xCoord][row + yCoord];
+
+				if (currentPixel && bytePixel)
 				{
-					V[15] = collision;
+					V[0xF] = 1;
 				}
-				screen.screenGrid[col + xCoord][row + yCoord] = bytePixel;
+				screen.screenGrid[col + xCoord][row + yCoord] = (screen.screenGrid[col + xCoord][row + yCoord]) ^ bytePixel;
 			}
 		}
-		renderPixels();
+		draw = true;
 	}
 
 	void fetch() 
@@ -199,6 +186,7 @@ public:
 					{
 						if (!mute) cout << "Clear the screen" << endl;
 						clearScreen();
+						draw = true;
 						break;
 					}
 					case 0xEE: 
@@ -458,7 +446,7 @@ public:
 					}
 					case 0x29:
 					{
-						registerI = memory[V[X]];
+						registerI = memory[V[X]] * 5;
 						break;
 					}
 					case 0x33:
@@ -466,7 +454,7 @@ public:
 						uint8_t bcd = V[X];
 
 						memory[registerI] = bcd / 100;
-						memory[registerI + 1] = (bcd / 10) % 10;
+						memory[registerI + 1] = (bcd % 100)/10;
 						memory[registerI + 2] = bcd % 10;
 						break;
 					}
@@ -631,7 +619,7 @@ public:
 		PC = 0x200;
 		memset(V, 0, sizeof(V));
 
-		memcpy(&memory[0x50], &fonts, sizeof(fonts));
+		memcpy(&memory[0], &fonts, sizeof(fonts));
 
 		string ibmLogo = "IBGM Logo.ch8";
 		string testOpcode = "test_opcode.ch8";
@@ -639,7 +627,7 @@ public:
 		string invader = "invaders.c8";
 
 		ifstream in;
-		in.open(testOpcode, ios::binary | ios::in | ios::ate);
+		in.open(invader, ios::binary | ios::in | ios::ate);
 
 		if (in.is_open())
 		{
@@ -659,6 +647,12 @@ int main()
 	Chip8 chip;
 	chip.resetState();
 
+	sf::Clock clock;
+	sf::Time tpf = sf::seconds(1.f / 600);
+	sf::Time accumulator = sf::Time::Zero;
+	sf::Time timerTpf = sf::seconds(1.f / 60.f);
+	sf::Time timerAccumulator = sf::Time::Zero;
+
 	while (chip.screen.window.isOpen())
 	{
 		// Check for window events
@@ -674,16 +668,30 @@ int main()
 			}
 		}
 
-		chip.fetch();
+		if (accumulator >= tpf)
+		{
+			chip.fetch();
+			accumulator = sf::Time::Zero;
+		}
 
 		// Update timers
-		if (chip.delayTimer > 0)
+		if (timerAccumulator >= timerTpf)
 		{
-			chip.delayTimer--;
-		}
-	}
-	cin.get();
+			if (chip.delayTimer > 0)
+			{
+				chip.delayTimer--;
+			}
 
+			timerAccumulator = sf::Time::Zero;
+		}
+
+		if (chip.draw)
+		{
+			chip.renderPixels();
+		}
+		accumulator += clock.getElapsedTime();
+		timerAccumulator += clock.restart();
+	}
 	return 0;
 }
 
