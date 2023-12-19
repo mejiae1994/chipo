@@ -10,7 +10,7 @@ This is a minimal Chip-8 emulator implemented in C++. It represents my first att
 - Educational project for learning low-level programming concepts.
 - Built with C++ and SFML using Visual Studio.
 
-## Learning Experience
+## Highlights
 
 This project provided insights into:
 
