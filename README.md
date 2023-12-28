@@ -2,6 +2,8 @@
 
 This is a minimal Chip-8 emulator implemented in C++. It represents my first attempt at emulation, providing a valuable learning experience in low-level operations and bitwise manipulation for logical decisions. The emulator simulates the Chip-8 virtual machine, capable of running Chip-8 programs and games. It's a simple and educational project aimed at understanding the fundamentals of computer emulation.
 
+![emulator screenshot](./chipo/screenshot.PNG)
+
 ## Features
 
 - Chip-8 instruction set emulation.
