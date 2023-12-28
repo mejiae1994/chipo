@@ -68,7 +68,7 @@ public:
 	uint8_t Keys[16];
 
 	//mute instructions for debug
-	bool mute = true;
+	bool mute = false;
 
 	uint8_t fonts[80] = {
 	   0xF0, 0x90, 0x90, 0x90, 0xF0,
@@ -92,7 +92,6 @@ public:
 	{
 		initScreen();
 	}
-
 
 
 	void initScreen() 
